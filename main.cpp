@@ -4,14 +4,23 @@
 #include "bitmap.h"
 using namespace std;
 
-// Prototypes
+// Forenote: The limit to the number of images that can be processed is 128.
+// This is because I DO NOT load all images at the same time as this would fill
+// RAM very quickly. Only 2 images are loaded at a time, one from the disk and
+// one is the matrix of all previously loaded images. This matrix stores the
+// total sum of all images previously loaded which will be averaged once all
+// images have been entered. The limit of 128 comes from the int maximum of
+// 32,767 divided by the pixel max of 255, giving the maximum number of images
+// that are storable.
+
+// Prototypes (Ugh, this is ugly)
+// TODO: Move stuff into a header file.
 Pixel addPixels(const Pixel &, const Pixel &);
 Pixel dividePixels(const Pixel &, const Pixel &);
 Pixel dividePixels(const Pixel &, int);
 vector<vector<Pixel> > averagePixels(vector<vector<Pixel> >, int);
 vector<vector<Pixel> > ProcessImages(vector<string> inPath = vector<string>(0));
 bool isValidOutPath(string);
-vector<vector<Pixel> > ProcessImages(vector<string>);
 
 // Main
 bool Main(vector<string> inPath, string outPath = "") {
@@ -88,6 +97,7 @@ int main(int argc, const char *argv[]) {
             "specify the output file.\nExample: "
          << argv[0] << " image1.bmp image2.bmp -o output.bmp\n\n";
   }
+  // Loop program until user decides to exit.
   while (Main(inputs, outPath)) {
     inputs.clear();
     outPath.clear();
@@ -99,6 +109,12 @@ int main(int argc, const char *argv[]) {
 
 // Do all of the processing of images including loading from disk.
 vector<vector<Pixel> > ProcessImages(vector<string> inPath) {
+  if (inPath.size() > 128) {
+    cerr << Campbell::Color::red << "A maximum of 128 images is supported. "
+                                    "Only the first 128 will be processed.\n"
+         << Campbell::Color::reset;
+    inPath.resize(128);
+  }
   vector<vector<Pixel> > output;
   int numImages = 0;
   int numImagesLoaded = 0;
@@ -109,29 +125,38 @@ vector<vector<Pixel> > ProcessImages(vector<string> inPath) {
     Bitmap bmp;
     // Determine file to load.
     if (inPath.size() < 1) {
+      if (numImagesLoaded == 10) {
+        cout
+            << Campbell::Color::yellow
+            << "At this point, I'm supposed to tell you that you have entered "
+               "the maximum allowable number of images, but this is not the "
+               "limit.\nYou may add up to 128 images, not the miniscule 10 I'm "
+               "required.\n"
+            << Campbell::Color::reset;
+      }
       // If no paths were provided via arguments, ask user for image each time
       // prior to processing.
-      cout << "Please enter an image name to load (#" << numImages + 1
+      cout << "Please enter an image name to load (#" << numImagesLoaded + 1
            << ") or \"DONE\" to stop: ";
       getline(cin, nextPath);
       if (nextPath == "DONE") return averagePixels(output, numImagesLoaded);
     } else if (numImages < (int)inPath.size()) {
-      nextPath = inPath[numImagesLoaded];
-      cout << Campbell::Color::green << "Loading image (" << numImagesLoaded + 1
-           << "): " << nextPath << Campbell::Color::reset << endl;
-
+      nextPath = inPath[numImages];
+      cout << Campbell::Color::green << "Loading image (" << numImages + 1
+           << "/" << inPath.size() << " "
+           << (numImages / (float)inPath.size() * 100.0) << "%): " << nextPath
+           << Campbell::Color::reset << endl;
+      numImages++;
     } else {
       return averagePixels(output, numImagesLoaded);
     }
-
-    numImages++;
 
     // Attempt to open file. If it fails, allow user to choose new file, or skip
     // if passed in through arguments.
     bmp.open(nextPath);
     if (!bmp.isImage()) {
-      cerr << Campbell::Color::red << "Invalid image (" << numImages << ", "
-           << nextPath
+      cerr << Campbell::Color::red << "Invalid image (" << numImagesLoaded + 1
+           << ", " << nextPath
            << ").\nEither the file provided wasn't a valid bitmap "
               "(24bit depth Windows BMP), or the path was incorrect.\n"
            << Campbell::Color::reset;
@@ -151,9 +176,9 @@ vector<vector<Pixel> > ProcessImages(vector<string> inPath) {
            << "Canvas size and image size do not match! The canvas may be "
               "resized to accommodate. Canvas: "
            << output.size() << "x" << output[0].size() << ", Image(#"
-           << numImages << "): " << pixels.size() << "x" << pixels[0].size()
-           << ". Images may not align properly!" << Campbell::Color::reset
-           << endl;
+           << numImagesLoaded << "): " << pixels.size() << "x"
+           << pixels[0].size() << ". Images may not align properly!"
+           << Campbell::Color::reset << endl;
     } else if (numImagesLoaded <= 1) {
       output.resize(pixels.size());
     }
@@ -169,6 +194,12 @@ vector<vector<Pixel> > ProcessImages(vector<string> inPath) {
         }
         output[i][j] = addPixels(pixels[i][j], output[i][j]);
       }
+    }
+    if (numImagesLoaded >= 128) {
+      cout << Campbell::Color::yellow
+           << "Maximum number of images reached. Finalizing image."
+           << Campbell::Color::reset << endl;
+      return averagePixels(output, numImagesLoaded);
     }
   }
 }
