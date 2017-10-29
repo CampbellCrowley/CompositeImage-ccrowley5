@@ -1,7 +1,7 @@
-#include <iostream>
-#include <vector>
 #include "CampbellLib/CampbellLib.h"
 #include "bitmap_wrapper.h"
+#include <iostream>
+#include <vector>
 using namespace std;
 
 // Forenote: The limit to the number of images that can be processed is 128.
@@ -16,9 +16,12 @@ using namespace std;
 
 // Prototypes (Ugh, this is ugly)
 // TODO: Move stuff into a header file.
-PixelMatrix averagePixels(PixelMatrix, int);
+PixelMatrix averagePixels(const PixelMatrix &, int);
 PixelMatrix ProcessImages(vector<string> inPath = vector<string>(0));
 bool isValidOutPath(string);
+enum Options { UNSET, ALLOW_RESIZE, DISALLOW_RESIZE };
+Options option = UNSET;
+void printHelp(const char *);
 
 // Main
 bool Main(vector<string> inPath, string outPath = "") {
@@ -40,6 +43,8 @@ bool Main(vector<string> inPath, string outPath = "") {
       if (outPath.length() < 1) {
         outPath = "composite-ccrowley5.bmp";
       }
+      cout << Campbell::Color::green << "File saving to " << outPath << "...\r"
+           << Campbell::Color::reset << flush;
       if (isValidOutPath(outPath)) {
         break;
       } else {
@@ -94,19 +99,26 @@ int main(int argc, const char *argv[]) {
       }
       i++;
       continue;
+    } else if (string(argv[i]) == "-a") {
+      option = ALLOW_RESIZE;
+      continue;
+    } else if (string(argv[i]) == "-d") {
+      option = DISALLOW_RESIZE;
+      continue;
+    } else if (string(argv[i]) == "-h" || string(argv[i]) == "--help") {
+      printHelp(argv[0]);
+      return 0;
     }
     inputs.push_back(string(argv[i]));
   }
   if (argc == 1) {
-    cout << "Info: You may specify filenames as arguments to the executable "
-            "(because tab-complete and wildcards are nice).\nInfo: use '-o "
-            "{FILENAME}' to specify the output file.\nExample: "
-         << argv[0] << " ./image1.bmp ~/image2.bmp ../*.bmp -o output.bmp\n\n";
+    printHelp(argv[0]);
   }
   // Loop program until user decides to exit.
   while (Main(inputs, outPath)) {
     inputs.clear();
     outPath.clear();
+    option = UNSET;
   }
   return 0;
 }
@@ -191,24 +203,45 @@ PixelMatrix ProcessImages(vector<string> inPath) {
         (output.size() != pixels.size() ||
          output[0].size() != pixels[0].size())) {
       cerr << Campbell::Color::yellow
-           << "Canvas size and image size do not match! The canvas may be "
-              "resized to accommodate. Canvas: "
+           << "Canvas size and image size do not match! Canvas: "
            << output.size() << "x" << output[0].size() << ", Image(#"
-           << numImagesLoaded << "): " << pixels.size() << "x"
-           << pixels[0].size() << ". Images may not align properly!"
+           << numImagesLoaded << ", " << nextPath << "): " << pixels.size()
+           << "x" << pixels[0].size() << ". Images may not align properly!"
            << Campbell::Color::reset << endl;
+      if (output.size() < pixels.size() ||
+          output[0].size() < pixels[0].size()) {
+        if (option == UNSET) {
+          cout << "Would you like to allow canvas resizing? (Tip: run with "
+                  "--help for options to choose this automatically), (Y/n): ";
+          option = Campbell::Strings::getYesNo(true) ? ALLOW_RESIZE
+                                                     : DISALLOW_RESIZE;
+        }
+        if (option == ALLOW_RESIZE) {
+          cout << "Canvas will be resized.\n";
+        } else {
+          cout << "Canvas will NOT be resized.\n";
+        }
+      }
     } else if (numImagesLoaded <= 1) {
       output.resize(pixels.size());
     }
     for (int i = 0; i < (int)pixels.size(); i++) {
       if (i >= (int)output.size()) {
-        output.push_back(vector<Pixel>(output[i - 1].size(), Pixel(0, 0, 0)));
+        if (option == ALLOW_RESIZE) {
+          output.push_back(vector<Pixel>(output[i - 1].size(), Pixel(0, 0, 0)));
+        } else {
+          break;
+        }
       }
       for (int j = 0; j < (int)pixels[i].size(); j++) {
         if (numImagesLoaded <= 1) {
           output[i].resize(pixels[i].size());
         } else if (j >= (int)output[i].size()) {
-          output[i].push_back(Pixel(0, 0, 0));
+          if (option == ALLOW_RESIZE) {
+            output[i].push_back(Pixel(0, 0, 0));
+          } else {
+            break;
+          }
         }
         output[i][j] = pixels[i][j] + output[i][j];
       }
@@ -226,7 +259,7 @@ PixelMatrix ProcessImages(vector<string> inPath) {
 
 // Divide matrix of pixels by a value in order to find the average of the summed
 // pixels.
-PixelMatrix averagePixels(PixelMatrix input, int count) {
+PixelMatrix averagePixels(const PixelMatrix &input, int count) {
   PixelMatrix output =
       PixelMatrix(input.size(), vector<Pixel>(input[0].size()));
   for (int i = 0; i < (int)input.size(); i++) {
@@ -247,6 +280,20 @@ bool isValidOutPath(string filename) {
     file.close();
     return true;
   }
+}
+
+void printHelp(const char *argv) {
+  cout
+      << "Info: You may specify filenames as arguments to the executable "
+         "(because tab-complete and wildcards are nice).\n"
+         "Info: use '-o {FILENAME}' to specify the output file.\n"
+         "Info: use '-a' to automatically allow canvas resizing if necessary.\n"
+         "Info: use '-d' to disallow any canvas resizing.\n"
+         "Info: use '-h' or '--help' to show this message.\n"
+         "Example: "
+      << argv << " ./image1.bmp ~/image2.bmp ../*.bmp -o output.bmp -a\n\n"
+      "Note: If input files are specified as arguments, the program will not\n"
+      "      give the option to make a another photo on completion.\n\n";
 }
 
 // My issues with bitmap library:
