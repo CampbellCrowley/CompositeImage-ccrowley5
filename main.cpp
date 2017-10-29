@@ -6,20 +6,22 @@ using namespace std;
 
 // Forenote: The limit to the number of images that can be processed is 128.
 // This is because I DO NOT load all images at the same time as this would fill
-// RAM very quickly. Only 2 images are loaded at a time, one from the disk and
-// one is the matrix of all previously loaded images. This matrix stores the
-// total sum of all images previously loaded which will be averaged once all
-// images have been entered. The limit of 128 comes from the int maximum of
-// 32,767 divided by the pixel max of 255, giving the maximum number of images
-// that are storable.
+// RAM very quickly. Only 2(3, sigh...) images are loaded at a time, one from
+// the disk and one is the matrix of all previously loaded images. This matrix
+// stores the total sum of all images previously loaded which will be averaged
+// once all images have been entered. The limit of 128 comes from the int
+// maximum of 32,767 divided by the pixel max of 255, giving the maximum number
+// of images that are storable.
+// (The third image is the buffer that the bitmap library has.)
 
 // Prototypes (Ugh, this is ugly)
 // TODO: Move stuff into a header file.
-Pixel addPixels(const Pixel &, const Pixel &);
-Pixel dividePixels(const Pixel &, const Pixel &);
-Pixel dividePixels(const Pixel &, int);
-vector<vector<Pixel> > averagePixels(vector<vector<Pixel> >, int);
-vector<vector<Pixel> > ProcessImages(vector<string> inPath = vector<string>(0));
+Pixel operator+(const Pixel &, const Pixel &);
+Pixel operator+(const Pixel &, const int &);
+Pixel operator/(const Pixel &, const Pixel &);
+bool operator==(const Pixel &, const Pixel &);
+PixelMatrix averagePixels(PixelMatrix, int);
+PixelMatrix ProcessImages(vector<string> inPath = vector<string>(0));
 bool isValidOutPath(string);
 
 // Main
@@ -28,36 +30,42 @@ bool Main(vector<string> inPath, string outPath = "") {
   bmp.fromPixelMatrix(ProcessImages(inPath));
   cout << Campbell::Color::green << "Processing complete!"
        << Campbell::Color::reset << endl;
+  if (bmp.toPixelMatrix() == PixelMatrix()) {
+    cerr << Campbell::Color::yellow << "Image is empty. I can't save nothing."
+         << Campbell::Color::reset << endl;
+  } else {
+    // Determine output location.
+    while (true) {
+      if (outPath.length() < 1) {
+        cout << "Please enter the place to save the image (nothing for "
+                "./composite-ccrowley5.bmp): ";
+        getline(cin, outPath);
+      }
+      if (outPath.length() < 1) {
+        outPath = "composite-ccrowley5.bmp";
+      }
+      if (isValidOutPath(outPath)) {
+        break;
+      } else {
+        cerr << Campbell::Color::red << outPath
+             << " could not be opened for editing. Is it already open by "
+                "another "
+                "program or is it read-only? (Who knows? Anything's "
+                "possible!)\n."
+             << Campbell::Color::reset;
+        outPath = "";
+      }
+    }
 
-  // Determine output location.
-  while (true) {
-    if (outPath.length() < 1) {
-      cout << "Please enter the place to save the image (nothing for "
-              "./composite-ccrowley5.bmp): ";
-      getline(cin, outPath);
-    }
-    if (outPath.length() < 1) {
-      outPath = "composite-ccrowley5.bmp";
-    }
-    if (isValidOutPath(outPath)) {
-      break;
-    } else {
-      cerr << Campbell::Color::red << outPath
-           << " could not be opened for editing. Is it already open by another "
-              "program or is it read-only?\n"
-           << Campbell::Color::reset;
-      outPath = "";
-    }
+    // Save file.
+    // bitmap.h does not provide an interface for checking whether this succeeds
+    // of not (still). The best I can do is assume my previous checks were good
+    // enough to verify the result will succeed.
+    bmp.save(outPath);
+
+    cout << Campbell::Color::green << "File saved to " << outPath << endl
+         << Campbell::Color::reset;
   }
-
-  // Save file.
-  // bitmap.h does not provide an interface for checking whether this succeeds
-  // of not. The best I can do is assume my previous checks were good enough to
-  // verify the result will succeed.
-  bmp.save(outPath);
-
-  cout << Campbell::Color::green << "File saved to " << outPath << endl
-       << Campbell::Color::reset;
 
   if (inPath.empty()) {
     cout << "Would you like to create another photo? (Y/n): ";
@@ -72,7 +80,7 @@ int main(int argc, const char *argv[]) {
   // argc is guaranteed to be at least 1.
   vector<string> inputs;
   string outPath;
-  // argv[0] is binary name.
+  // argv[0] is binary name. argv[1] is first argument.
   for (int i = 1; i < argc; i++) {
     if (string(argv[i]) == "-o") {
       if (outPath.empty()) {
@@ -93,9 +101,9 @@ int main(int argc, const char *argv[]) {
   }
   if (argc == 1) {
     cout << "Info: You may specify filenames as arguments to the executable "
-            "(because tab-complete is nice).\nInfo: use '-o {FILENAME}' to "
-            "specify the output file.\nExample: "
-         << argv[0] << " image1.bmp image2.bmp -o output.bmp\n\n";
+            "(because tab-complete and wildcards are nice).\nInfo: use '-o "
+            "{FILENAME}' to specify the output file.\nExample: "
+         << argv[0] << " ./image1.bmp ~/image2.bmp ../*.bmp -o output.bmp\n\n";
   }
   // Loop program until user decides to exit.
   while (Main(inputs, outPath)) {
@@ -108,14 +116,14 @@ int main(int argc, const char *argv[]) {
 // Definitions
 
 // Do all of the processing of images including loading from disk.
-vector<vector<Pixel> > ProcessImages(vector<string> inPath) {
+PixelMatrix ProcessImages(vector<string> inPath) {
   if (inPath.size() > 128) {
     cerr << Campbell::Color::red << "A maximum of 128 images is supported. "
                                     "Only the first 128 will be processed.\n"
          << Campbell::Color::reset;
     inPath.resize(128);
   }
-  vector<vector<Pixel> > output;
+  PixelMatrix output;
   int numImages = 0;
   int numImagesLoaded = 0;
   string nextPath;
@@ -139,7 +147,13 @@ vector<vector<Pixel> > ProcessImages(vector<string> inPath) {
       cout << "Please enter an image name to load (#" << numImagesLoaded + 1
            << ") or \"DONE\" to stop: ";
       getline(cin, nextPath);
-      if (nextPath == "DONE") return averagePixels(output, numImagesLoaded);
+      if (nextPath == "DONE") {
+        if (numImagesLoaded == 0) {
+          return PixelMatrix();
+        } else {
+          return averagePixels(output, numImagesLoaded);
+        }
+      }
     } else if (numImages < (int)inPath.size()) {
       nextPath = inPath[numImages];
       cout << Campbell::Color::green << "Loading image (" << numImages + 1
@@ -167,7 +181,7 @@ vector<vector<Pixel> > ProcessImages(vector<string> inPath) {
 
     // Convert image to 2D vector of Pixels. Resize output to fit the largest
     // image entered.
-    vector<vector<Pixel> > pixels = bmp.toPixelMatrix();
+    PixelMatrix pixels = bmp.toPixelMatrix();
     // It is safe to assume that the image has at least one row and column and
     // is not jagged.
     if (numImagesLoaded > 1 && (output.size() != pixels.size() ||
@@ -192,7 +206,7 @@ vector<vector<Pixel> > ProcessImages(vector<string> inPath) {
         } else if (j >= (int)output[i].size()) {
           output[i].push_back(Pixel(0, 0, 0));
         }
-        output[i][j] = addPixels(pixels[i][j], output[i][j]);
+        output[i][j] = pixels[i][j] + output[i][j];
       }
     }
     if (numImagesLoaded >= 128) {
@@ -204,26 +218,29 @@ vector<vector<Pixel> > ProcessImages(vector<string> inPath) {
   }
 }
 
-// Add two pixels together.
-Pixel addPixels(const Pixel &one, const Pixel &two) {
+Pixel operator+(const Pixel &one, const Pixel &two) {
   return Pixel(one.red + two.red, one.green + two.green, one.blue + two.blue);
 }
-// Divide one pixel by another.
-Pixel dividePixels(const Pixel &one, const Pixel &two) {
+Pixel operator+(const Pixel &one, const int &two) {
+  return Pixel(one.red + two, one.green + two, one.blue + two);
+}
+Pixel operator/(const Pixel &one, const Pixel &two) {
   return Pixel(one.red / two.red, one.green / two.green, one.blue / two.blue);
 }
-// Divide a pixel by a value.
-Pixel dividePixels(const Pixel &one, int num) {
-  return dividePixels(one, Pixel(num, num, num));
+Pixel operator/(const Pixel &one, const int &two) {
+  return Pixel(one.red / two, one.green / two, one.blue / two);
+}
+bool operator==(const Pixel &one, const Pixel &two) {
+  return one.red == two.red && one.green == two.green && one.blue == two.blue;
 }
 // Divide matrix of pixels by a value in order to find the average of the summed
 // pixels.
-vector<vector<Pixel> > averagePixels(vector<vector<Pixel> > input, int count) {
-  vector<vector<Pixel> > output =
-      vector<vector<Pixel> >(input.size(), vector<Pixel>(input[0].size()));
+PixelMatrix averagePixels(PixelMatrix input, int count) {
+  PixelMatrix output =
+      PixelMatrix(input.size(), vector<Pixel>(input[0].size()));
   for (int i = 0; i < (int)input.size(); i++) {
     for (int j = 0; j < (int)input[i].size(); j++) {
-      output[i][j] = dividePixels(input[i][j], count);
+      output[i][j] = input[i][j] / count;
     }
   }
   return output;
@@ -240,3 +257,26 @@ bool isValidOutPath(string filename) {
     return true;
   }
 }
+
+// My issues with bitmap library:
+// 1) Does not include iostream. Requires parent to do so.
+// 2) Gives no feedback as to whether operations fail or succeed.
+// 3) Does not contain interface for accessing Pixels as an array making loops
+// more complicated.
+// 4) Pixels are stored as int instead of space efficient unsigned byte
+// (uchar_t), which I see a typedef for...
+// 5) Comments are formatted as a Java Doc. (This is C++, I can see what is
+// being returned)
+// 6) Appends newly opened files to current buffer instead of overwriting and
+// does not provide interface for clearing buffer.
+// 7) Inefficiently requires 2 copies of an image to be stored at all times. (1
+// is its internal buffer, while the user is required to copy this buffer to
+// another buffer in order to use it.)
+// 8) White space EVERYWHERE.
+// 9) Uses cout. Give the includer feedback instead!
+// 10) fromPixelMatrix() should check if matrix is valid image and return if
+// there is a failure.
+// 11) Functions should all be static. (No need for internal buffer, just return
+// it on open(). Pass in PixelMatrix for each function instead.)
+// 12) Pixels are typedef'd to be "helpful", but do not provide comparative
+// operators making inline comparison difficult.
