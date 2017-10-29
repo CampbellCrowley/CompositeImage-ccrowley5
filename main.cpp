@@ -53,14 +53,16 @@ bool Main(vector<string> inPath, string outPath = "") {
       }
     }
 
+    cout << Campbell::Color::green << "File saving to " << outPath << "...\r"
+         << Campbell::Color::reset << flush;
     // Save file.
     // bitmap.h does not provide an interface for checking whether this succeeds
     // of not (still). The best I can do is assume my previous checks were good
     // enough to verify the result will succeed.
     bmp.save(outPath);
 
-    cout << Campbell::Color::green << "File saved to " << outPath << endl
-         << Campbell::Color::reset;
+    cout << Campbell::Color::green << "File saved to " << outPath << "     "
+         << Campbell::Color::reset << endl;
   }
 
   if (inPath.empty()) {
@@ -122,6 +124,8 @@ PixelMatrix ProcessImages(vector<string> inPath) {
   PixelMatrix output;
   int numImages = 0;
   int numImagesLoaded = 0;
+  size_t previousWidth = 0;
+  size_t previousHeight = 0;
   string nextPath;
   while (true) {
     // Bitmap appends new images to previously loaded images when open() is
@@ -155,7 +159,7 @@ PixelMatrix ProcessImages(vector<string> inPath) {
       cout << Campbell::Color::green << "Loading image (" << numImages + 1
            << "/" << inPath.size() << " "
            << (numImages / (float)inPath.size() * 100.0) << "%): " << nextPath
-           << Campbell::Color::reset << endl;
+           << Campbell::Color::reset << "          \r" << flush;
       numImages++;
     } else {
       return averagePixels(output, numImagesLoaded);
@@ -163,6 +167,7 @@ PixelMatrix ProcessImages(vector<string> inPath) {
 
     // Attempt to open file. If it fails, allow user to choose new file, or skip
     // if passed in through arguments.
+    cout << Campbell::Color::magenta;
     bmp.open(nextPath);
     if (!bmp.isImage()) {
       cerr << Campbell::Color::red << "Invalid image (" << numImagesLoaded + 1
@@ -172,6 +177,7 @@ PixelMatrix ProcessImages(vector<string> inPath) {
            << Campbell::Color::reset;
       continue;
     }
+    cout << Campbell::Color::reset;
 
     numImagesLoaded++;
 
@@ -180,8 +186,10 @@ PixelMatrix ProcessImages(vector<string> inPath) {
     PixelMatrix pixels = bmp.toPixelMatrix();
     // It is safe to assume that the image has at least one row and column and
     // is not jagged.
-    if (numImagesLoaded > 1 && (output.size() != pixels.size() ||
-                                output[0].size() != pixels[0].size())) {
+    if (numImagesLoaded > 1 && previousWidth != pixels.size() &&
+        previousHeight != pixels[0].size() &&
+        (output.size() != pixels.size() ||
+         output[0].size() != pixels[0].size())) {
       cerr << Campbell::Color::yellow
            << "Canvas size and image size do not match! The canvas may be "
               "resized to accommodate. Canvas: "
@@ -205,6 +213,8 @@ PixelMatrix ProcessImages(vector<string> inPath) {
         output[i][j] = pixels[i][j] + output[i][j];
       }
     }
+    previousWidth = pixels.size();
+    previousHeight = pixels[0].size();
     if (numImagesLoaded >= 128) {
       cout << Campbell::Color::yellow
            << "Maximum number of images reached. Finalizing image."

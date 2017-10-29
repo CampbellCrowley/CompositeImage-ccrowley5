@@ -54,4 +54,14 @@ bool operator==(const Pixel &one, const Pixel &two) {
   return one.red == two.red && one.green == two.green && one.blue == two.blue;
 }
 
+// Subscript Operator
+// If only...
+// int &Pixel::operator[](const int &i) {
+//   switch(i) {
+//     case 0: return Pixel.red;
+//     case 1: return Pixel.green;
+//     case 2: return Pixel.blue;
+//   }
+// }
+
 #endif // BITMAP_WRAPPER_H
