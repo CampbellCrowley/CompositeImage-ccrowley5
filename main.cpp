@@ -1,7 +1,7 @@
 #include <iostream>
 #include <vector>
 #include "CampbellLib/CampbellLib.h"
-#include "bitmap.h"
+#include "bitmap_wrapper.h"
 using namespace std;
 
 // Forenote: The limit to the number of images that can be processed is 128.
@@ -16,10 +16,6 @@ using namespace std;
 
 // Prototypes (Ugh, this is ugly)
 // TODO: Move stuff into a header file.
-Pixel operator+(const Pixel &, const Pixel &);
-Pixel operator+(const Pixel &, const int &);
-Pixel operator/(const Pixel &, const Pixel &);
-bool operator==(const Pixel &, const Pixel &);
 PixelMatrix averagePixels(PixelMatrix, int);
 PixelMatrix ProcessImages(vector<string> inPath = vector<string>(0));
 bool isValidOutPath(string);
@@ -218,21 +214,6 @@ PixelMatrix ProcessImages(vector<string> inPath) {
   }
 }
 
-Pixel operator+(const Pixel &one, const Pixel &two) {
-  return Pixel(one.red + two.red, one.green + two.green, one.blue + two.blue);
-}
-Pixel operator+(const Pixel &one, const int &two) {
-  return Pixel(one.red + two, one.green + two, one.blue + two);
-}
-Pixel operator/(const Pixel &one, const Pixel &two) {
-  return Pixel(one.red / two.red, one.green / two.green, one.blue / two.blue);
-}
-Pixel operator/(const Pixel &one, const int &two) {
-  return Pixel(one.red / two, one.green / two, one.blue / two);
-}
-bool operator==(const Pixel &one, const Pixel &two) {
-  return one.red == two.red && one.green == two.green && one.blue == two.blue;
-}
 // Divide matrix of pixels by a value in order to find the average of the summed
 // pixels.
 PixelMatrix averagePixels(PixelMatrix input, int count) {
