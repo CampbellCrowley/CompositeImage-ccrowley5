@@ -4,19 +4,54 @@
 #include <iostream> // Because bitmap is dumb and doesn't do this itself.
 
 // Arithmetic Operators
-Pixel operator+(const Pixel &, const Pixel &);
-Pixel operator+(const Pixel &, const int &);
-Pixel operator+(const int &, const Pixel &);
-Pixel operator-(const Pixel &, const Pixel &);
-Pixel operator-(const Pixel &, const int &);
-Pixel operator/(const Pixel &, const Pixel &);
-Pixel operator/(const Pixel &, const int &);
-Pixel operator*(const Pixel &, const Pixel &);
-Pixel operator*(const Pixel &, const int &);
-Pixel operator*(const int &, const Pixel &);
+// Addition
+Pixel operator+(const Pixel &one, const Pixel &two) {
+  return Pixel(one.red + two.red, one.green + two.green, one.blue + two.blue);
+}
+template<typename T>
+Pixel operator+(const Pixel &one, const T &two) {
+  return Pixel(one.red + two, one.green + two, one.blue + two);
+}
+template<typename T>
+Pixel operator+(const T &one, const Pixel &two) {
+  return Pixel(two.red + one, two.green + one, two.blue + one);
+}
+
+// Subtraction
+Pixel operator-(const Pixel &one, const Pixel &two) {
+  return Pixel(one.red - two.red, one.green - two.green, one.blue - two.blue);
+}
+template<typename T>
+Pixel operator-(const Pixel &one, const T &two) {
+  return Pixel(one.red - two, one.green - two, one.blue - two);
+}
+
+// Division
+Pixel operator/(const Pixel &one, const Pixel &two) {
+  return Pixel(one.red / two.red, one.green / two.green, one.blue / two.blue);
+}
+template<typename T>
+Pixel operator/(const Pixel &one, const T &two) {
+  return Pixel(one.red / two, one.green / two, one.blue / two);
+}
+
+// Multiplication
+Pixel operator*(const Pixel &one, const Pixel &two) {
+  return Pixel(one.red * two.red, one.green * two.green, one.blue * two.blue);
+}
+template<typename T>
+Pixel operator*(const Pixel &one, const T &two) {
+  return Pixel(one.red * two, one.green * two, one.blue * two);
+}
+template<typename T>
+Pixel operator*(const T &one, const Pixel &two) {
+  return Pixel(two.red * one, two.green * one, two.blue * one);
+}
 
 // Comparative Operators
-bool operator==(const Pixel &, const Pixel &);
 
-#include "bitmap_wrapper.cpp"
+bool operator==(const Pixel &one, const Pixel &two) {
+  return one.red == two.red && one.green == two.green && one.blue == two.blue;
+}
+
 #endif // BITMAP_WRAPPER_H
