@@ -2,26 +2,27 @@
 #include "bitmap_wrapper.h"
 #include <iostream>
 #include <vector>
+#include <limits>
 using namespace std;
 
-// Forenote: The limit to the number of images that can be processed is 128.
-// This is because I DO NOT load all images at the same time as this would fill
-// RAM very quickly. Only 2(3, sigh...) images are loaded at a time, one from
-// the disk and one is the matrix of all previously loaded images. This matrix
-// stores the total sum of all images previously loaded which will be averaged
-// once all images have been entered. The limit of 128 comes from the int
-// maximum of 32,767 divided by the pixel max of 255, giving the maximum number
-// of images that are storable.
+// Forenote: The limit to the number of images that can be processed is
+// MAX_NUM_IMAGES. This is because I DO NOT load all images at the same time as
+// this would fill RAM very quickly. Only 2(3, sigh...) images are loaded at a
+// time, one from the disk and one is the matrix of all previously loaded
+// images. This matrix stores the total sum of all images previously loaded
+// which will be averaged once all images have been entered.
 // (The third image is the buffer that the bitmap library has.)
 
 // Prototypes (Ugh, this is ugly)
 // TODO: Move stuff into a header file.
-PixelMatrix averagePixels(const PixelMatrix &, int);
+void averagePixels(PixelMatrix &, int);
 PixelMatrix ProcessImages(vector<string> inPath = vector<string>(0));
-bool isValidOutPath(string);
+bool isValidOutPath(const string &);
+void printHelp(const char *);
+
 enum Options { UNSET, ALLOW_RESIZE, DISALLOW_RESIZE };
 Options option = UNSET;
-void printHelp(const char *);
+const int MAX_NUM_IMAGES = numeric_limits<int>::max() / 255; // 8421504
 
 // Main
 bool Main(vector<string> inPath, string outPath = "") {
@@ -80,6 +81,7 @@ bool Main(vector<string> inPath, string outPath = "") {
 
 // Entry
 int main(int argc, const char *argv[]) {
+  // cout << "MAX_NUM_IMAGES: " << MAX_NUM_IMAGES << endl;
   // argc is guaranteed to be at least 1.
   vector<string> inputs;
   string outPath;
@@ -127,11 +129,12 @@ int main(int argc, const char *argv[]) {
 
 // Do all of the processing of images including loading from disk.
 PixelMatrix ProcessImages(vector<string> inPath) {
-  if (inPath.size() > 128) {
-    cerr << Campbell::Color::red << "A maximum of 128 images is supported. "
-                                    "Only the first 128 will be processed.\n"
+  if ((int)inPath.size() > MAX_NUM_IMAGES) {
+    cerr << Campbell::Color::red << "A maximum of " << MAX_NUM_IMAGES
+         << " images is supported. Only the first " << MAX_NUM_IMAGES
+         << " will be processed.\n"
          << Campbell::Color::reset;
-    inPath.resize(128);
+    inPath.resize(MAX_NUM_IMAGES);
   }
   PixelMatrix output;
   int numImages = 0;
@@ -146,13 +149,13 @@ PixelMatrix ProcessImages(vector<string> inPath) {
     // Determine file to load.
     if (inPath.size() < 1) {
       if (numImagesLoaded == 10) {
-        cout
-            << Campbell::Color::yellow
-            << "At this point, I'm supposed to tell you that you have entered "
-               "the maximum allowable number of images, but this is not the "
-               "limit.\nYou may add up to 128 images, not the miniscule 10 I'm "
-               "required.\n"
-            << Campbell::Color::reset;
+        cout << Campbell::Color::yellow
+             << "At this point, I'm supposed to tell you that you have entered "
+                "the maximum allowable number of images, but this is not the "
+                "limit.\nYou may add up to "
+             << MAX_NUM_IMAGES << " images, not the miniscule 10 I'm "
+                                  "required.\n"
+             << Campbell::Color::reset;
       }
       // If no paths were provided via arguments, ask user for image each time
       // prior to processing.
@@ -163,7 +166,8 @@ PixelMatrix ProcessImages(vector<string> inPath) {
         if (numImagesLoaded == 0) {
           return PixelMatrix();
         } else {
-          return averagePixels(output, numImagesLoaded);
+          averagePixels(output, numImagesLoaded);
+          return output;
         }
       }
     } else if (numImages < (int)inPath.size()) {
@@ -174,7 +178,8 @@ PixelMatrix ProcessImages(vector<string> inPath) {
            << Campbell::Color::reset << "          \r" << flush;
       numImages++;
     } else {
-      return averagePixels(output, numImagesLoaded);
+      averagePixels(output, numImagesLoaded);
+      return output;
     }
 
     // Attempt to open file. If it fails, allow user to choose new file, or skip
@@ -248,29 +253,28 @@ PixelMatrix ProcessImages(vector<string> inPath) {
     }
     previousWidth = pixels.size();
     previousHeight = pixels[0].size();
-    if (numImagesLoaded >= 128) {
+    if (numImagesLoaded >= MAX_NUM_IMAGES) {
       cout << Campbell::Color::yellow
            << "Maximum number of images reached. Finalizing image."
            << Campbell::Color::reset << endl;
-      return averagePixels(output, numImagesLoaded);
+      averagePixels(output, numImagesLoaded);
+      return output;
     }
   }
 }
 
 // Divide matrix of pixels by a value in order to find the average of the summed
 // pixels.
-PixelMatrix averagePixels(const PixelMatrix &input, int count) {
-  PixelMatrix output =
-      PixelMatrix(input.size(), vector<Pixel>(input[0].size()));
+void averagePixels(PixelMatrix &input, int count) {
   for (int i = 0; i < (int)input.size(); i++) {
     for (int j = 0; j < (int)input[i].size(); j++) {
-      output[i][j] = input[i][j] / count;
+      input[i][j] = input[i][j] / count;
     }
   }
-  return output;
 }
+
 // Check if file will be able to save to specified path.
-bool isValidOutPath(string filename) {
+bool isValidOutPath(const string &filename) {
   std::ofstream file(filename.c_str(), std::ios::out | std::ios::binary);
 
   if (file.fail()) {
