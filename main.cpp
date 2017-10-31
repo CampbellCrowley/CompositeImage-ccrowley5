@@ -16,16 +16,16 @@ using namespace std;
 // Prototypes (Ugh, this is ugly)
 // TODO: Move stuff into a header file.
 void averagePixels(PixelMatrix &, int);
-PixelMatrix ProcessImages(vector<string> inPath = vector<string>(0));
+PixelMatrix ProcessImages(vector<string> &inPath);
 bool isValidOutPath(const string &);
 void printHelp(const char *);
 
 enum Options { UNSET, ALLOW_RESIZE, DISALLOW_RESIZE };
 Options option = UNSET;
-const int MAX_NUM_IMAGES = numeric_limits<int>::max() / 255; // 8421504
+const unsigned int MAX_NUM_IMAGES = numeric_limits<int>::max() / 255; // 8421504
 
 // Main
-bool Main(vector<string> inPath, string outPath = "") {
+bool Main(vector<string> &inPath, string &outPath) {
   Bitmap bmp;
   bmp.fromPixelMatrix(ProcessImages(inPath));
   cout << Campbell::Color::green << "Processing complete!"
@@ -128,8 +128,8 @@ int main(int argc, const char *argv[]) {
 // Definitions
 
 // Do all of the processing of images including loading from disk.
-PixelMatrix ProcessImages(vector<string> inPath) {
-  if ((int)inPath.size() > MAX_NUM_IMAGES) {
+PixelMatrix ProcessImages(vector<string> &inPath) {
+  if (inPath.size() > MAX_NUM_IMAGES) {
     cerr << Campbell::Color::red << "A maximum of " << MAX_NUM_IMAGES
          << " images is supported. Only the first " << MAX_NUM_IMAGES
          << " will be processed.\n"
@@ -172,7 +172,7 @@ PixelMatrix ProcessImages(vector<string> inPath) {
       }
     } else if (numImages < (int)inPath.size()) {
       nextPath = inPath[numImages];
-      cout << Campbell::Color::green << "Loading image (" << numImages + 1
+      cout << Campbell::Color::green << "Opening image (" << numImages + 1
            << "/" << inPath.size() << " "
            << (numImages / (float)inPath.size() * 100.0) << "%): " << nextPath
            << Campbell::Color::reset << "          \r" << flush;
@@ -194,7 +194,11 @@ PixelMatrix ProcessImages(vector<string> inPath) {
            << Campbell::Color::reset;
       continue;
     }
-    cout << Campbell::Color::reset;
+    cout << Campbell::Color::green << "Loading image (" << numImages << "/"
+         << inPath.size() << " "
+         << ((numImages - 0.5) / (float)inPath.size() * 100.0)
+         << "%): " << nextPath << Campbell::Color::reset << "          \r"
+         << flush;
 
     numImagesLoaded++;
 
@@ -253,7 +257,7 @@ PixelMatrix ProcessImages(vector<string> inPath) {
     }
     previousWidth = pixels.size();
     previousHeight = pixels[0].size();
-    if (numImagesLoaded >= MAX_NUM_IMAGES) {
+    if ((unsigned int)numImagesLoaded >= MAX_NUM_IMAGES) {
       cout << Campbell::Color::yellow
            << "Maximum number of images reached. Finalizing image."
            << Campbell::Color::reset << endl;
