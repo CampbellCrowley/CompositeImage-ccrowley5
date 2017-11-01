@@ -24,7 +24,7 @@ void printHelp(const char *);
 enum Options { UNSET, ALLOW_RESIZE, DISALLOW_RESIZE };
 Options option = UNSET;
 const unsigned int MAX_NUM_IMAGES = numeric_limits<int>::max() / MAX_RGB;
-// 8421504
+// 8,421,504
 
 // Entry
 int main(int argc, const char *argv[]) {
@@ -279,7 +279,7 @@ PixelMatrix ProcessImages(vector<string> &inPath) {
 void averagePixels(PixelMatrix &input, int count) {
   for (int i = 0; i < (int)input.size(); i++) {
     for (int j = 0; j < (int)input[i].size(); j++) {
-      input[i][j] = input[i][j] / count;
+      input[i][j] /= count;
     }
   }
 }  // void averagePixels
