@@ -1,13 +1,13 @@
+#include <iostream>
+#include <limits>
+#include <vector>
 #include "CampbellLib/CampbellLib.h"
 #include "bitmap_wrapper.h"
-#include <iostream>
-#include <vector>
-#include <limits>
 using namespace std;
 
 // Forenote: The limit to the number of images that can be processed is
 // MAX_NUM_IMAGES. This is because I DO NOT load all images at the same time as
-// this would fill RAM very quickly. Only 2(3, sigh...) images are loaded at a
+// this would fill RAM very quickly. Only 2 (3, sigh...) images are loaded at a
 // time, one from the disk and one is the matrix of all previously loaded
 // images. This matrix stores the total sum of all images previously loaded
 // which will be averaged once all images have been entered.
@@ -15,6 +15,7 @@ using namespace std;
 
 // Prototypes (Ugh, this is ugly)
 // TODO: Move stuff into a header file.
+bool Main(vector<string> &, string &);
 void averagePixels(PixelMatrix &, int);
 PixelMatrix ProcessImages(vector<string> &inPath);
 bool isValidOutPath(const string &);
@@ -22,66 +23,13 @@ void printHelp(const char *);
 
 enum Options { UNSET, ALLOW_RESIZE, DISALLOW_RESIZE };
 Options option = UNSET;
-const unsigned int MAX_NUM_IMAGES = numeric_limits<int>::max() / 255; // 8421504
-
-// Main
-bool Main(vector<string> &inPath, string &outPath) {
-  Bitmap bmp;
-  bmp.fromPixelMatrix(ProcessImages(inPath));
-  cout << Campbell::Color::green << "Processing complete!"
-       << Campbell::Color::reset << endl;
-  if (bmp.toPixelMatrix() == PixelMatrix()) {
-    cerr << Campbell::Color::yellow << "Image is empty. I can't save nothing."
-         << Campbell::Color::reset << endl;
-  } else {
-    // Determine output location.
-    while (true) {
-      if (outPath.length() < 1) {
-        cout << "Please enter the place to save the image (nothing for "
-                "./composite-ccrowley5.bmp): ";
-        getline(cin, outPath);
-      }
-      if (outPath.length() < 1) {
-        outPath = "composite-ccrowley5.bmp";
-      }
-      cout << Campbell::Color::green << "File saving to " << outPath << "...\r"
-           << Campbell::Color::reset << flush;
-      if (isValidOutPath(outPath)) {
-        break;
-      } else {
-        cerr << Campbell::Color::red << outPath
-             << " could not be opened for editing. Is it already open by "
-                "another "
-                "program or is it read-only? (Who knows? Anything's "
-                "possible!)\n."
-             << Campbell::Color::reset;
-        outPath = "";
-      }
-    }
-
-    cout << Campbell::Color::green << "File saving to " << outPath << "...\r"
-         << Campbell::Color::reset << flush;
-    // Save file.
-    // bitmap.h does not provide an interface for checking whether this succeeds
-    // of not (still). The best I can do is assume my previous checks were good
-    // enough to verify the result will succeed.
-    bmp.save(outPath);
-
-    cout << Campbell::Color::green << "File saved to " << outPath << "     "
-         << Campbell::Color::reset << endl;
-  }
-
-  if (inPath.empty()) {
-    cout << "Would you like to create another photo? (Y/n): ";
-    return Campbell::Strings::getYesNo();
-  }
-
-  return false;
-}
+const unsigned int MAX_NUM_IMAGES = numeric_limits<int>::max() / MAX_RGB;
+// 8421504
 
 // Entry
 int main(int argc, const char *argv[]) {
   // cout << "MAX_NUM_IMAGES: " << MAX_NUM_IMAGES << endl;
+
   // argc is guaranteed to be at least 1.
   vector<string> inputs;
   string outPath;
@@ -126,6 +74,60 @@ int main(int argc, const char *argv[]) {
 }
 
 // Definitions
+
+// Main
+bool Main(vector<string> &inPath, string &outPath) {
+  Bitmap bmp;
+  bmp.fromPixelMatrix(ProcessImages(inPath));
+  cout << Campbell::Color::green << "Processing complete!"
+       << Campbell::Color::reset << endl;
+  if (bmp.toPixelMatrix() == PixelMatrix()) {
+    cerr << Campbell::Color::yellow << "Image is empty. I can't save nothing."
+         << Campbell::Color::reset << endl;
+  } else {
+    // Determine output location.
+    while (true) {
+      if (outPath.empty()) {
+        cout << "Please enter the place to save the image (nothing for "
+                "./composite-ccrowley5.bmp): ";
+        getline(cin, outPath);
+      }
+      if (outPath.empty()) {
+        outPath = "composite-ccrowley5.bmp";
+      }
+      cout << Campbell::Color::green << "File saving to " << outPath << "...\r"
+           << Campbell::Color::reset << flush;
+      if (isValidOutPath(outPath)) {
+        break;
+      } else {
+        cerr << Campbell::Color::red << outPath
+             << " could not be opened for editing. Is it already open by "
+                "another program or is it read-only? (Who knows? Anything's "
+                "possible!)\n."
+             << Campbell::Color::reset;
+        outPath.clear();
+      }
+    }
+
+    cout << Campbell::Color::green << "File saving to " << outPath << "...\r"
+         << Campbell::Color::reset << flush;
+    // Save file.
+    // bitmap.h does not provide an interface for checking whether this succeeds
+    // or not (still). The best I can do is assume my previous checks were good
+    // enough to verify the result will succeed.
+    bmp.save(outPath);
+
+    cout << Campbell::Color::green << "File saved to " << outPath << "     "
+         << Campbell::Color::reset << endl;
+  }
+
+  if (inPath.empty()) {
+    cout << "Would you like to create another photo? (Y/n): ";
+    return Campbell::Strings::getYesNo();
+  }
+
+  return false;
+}  // bool Main
 
 // Do all of the processing of images including loading from disk.
 PixelMatrix ProcessImages(vector<string> &inPath) {
@@ -217,6 +219,8 @@ PixelMatrix ProcessImages(vector<string> &inPath) {
            << numImagesLoaded << ", " << nextPath << "): " << pixels.size()
            << "x" << pixels[0].size() << ". Images may not align properly!"
            << Campbell::Color::reset << endl;
+      // Check if canvas will need to be resized to fit the new image and inform
+      // user.
       if (output.size() < pixels.size() ||
           output[0].size() < pixels[0].size()) {
         if (option == UNSET) {
@@ -235,24 +239,27 @@ PixelMatrix ProcessImages(vector<string> &inPath) {
       output.resize(pixels.size());
     }
     for (int i = 0; i < (int)pixels.size(); i++) {
+      // Increase the size of the canvas to fit the new image.
       if (i >= (int)output.size()) {
         if (option == ALLOW_RESIZE) {
-          output.push_back(vector<Pixel>(output[i - 1].size(), Pixel(0, 0, 0)));
+          output.push_back(vector<Pixel>(output[i - 1].size(), Pixel()));
         } else {
           break;
         }
       }
       for (int j = 0; j < (int)pixels[i].size(); j++) {
+        // Increase the size of the canvas to fit the new image.
         if (numImagesLoaded <= 1) {
           output[i].resize(pixels[i].size());
         } else if (j >= (int)output[i].size()) {
           if (option == ALLOW_RESIZE) {
-            output[i].push_back(Pixel(0, 0, 0));
+            output[i].push_back(Pixel());
           } else {
             break;
           }
         }
-        output[i][j] = pixels[i][j] + output[i][j];
+        // Sum canvas and new image values.
+        output[i][j] += pixels[i][j];
       }
     }
     previousWidth = pixels.size();
@@ -265,7 +272,7 @@ PixelMatrix ProcessImages(vector<string> &inPath) {
       return output;
     }
   }
-}
+}  // PixelMatrix ProcessImages
 
 // Divide matrix of pixels by a value in order to find the average of the summed
 // pixels.
@@ -275,7 +282,7 @@ void averagePixels(PixelMatrix &input, int count) {
       input[i][j] = input[i][j] / count;
     }
   }
-}
+}  // void averagePixels
 
 // Check if file will be able to save to specified path.
 bool isValidOutPath(const string &filename) {
@@ -288,7 +295,7 @@ bool isValidOutPath(const string &filename) {
     file.close();
     return true;
   }
-}
+}  // bool isValidOutPath
 
 void printHelp(const char *argv) {
   cout
@@ -299,10 +306,12 @@ void printHelp(const char *argv) {
          "Info: use '-d' to disallow any canvas resizing.\n"
          "Info: use '-h' or '--help' to show this message.\n"
          "Example: "
-      << argv << " ./image1.bmp ~/image2.bmp ../*.bmp -o output.bmp -a\n\n"
-      "Note: If input files are specified as arguments, the program will not\n"
-      "      give the option to make a another photo on completion.\n\n";
-}
+      << argv
+      << " ./image1.bmp ~/image2.bmp ../*.bmp -o output.bmp -a\n\n"
+         "Note: If input files are specified as arguments, the program will "
+         "not\n"
+         "      give the option to make a another photo on completion.\n\n";
+}  // void printHelp
 
 // My issues with bitmap library:
 // 1) Does not include iostream. Requires parent to do so.
