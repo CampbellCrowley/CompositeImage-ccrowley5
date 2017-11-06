@@ -34,6 +34,7 @@ int main(int argc, const char *argv[]) {
   vector<string> inputs;
   string outPath;
   // argv[0] is binary name. argv[1] is first argument.
+  // Check for arguments
   for (int i = 1; i < argc; i++) {
     if (string(argv[i]) == "-o") {
       if (outPath.empty()) {
@@ -145,8 +146,8 @@ PixelMatrix ProcessImages(vector<string> &inPath) {
   size_t previousHeight = 0;
   string nextPath;
   while (true) {
-    // Bitmap appends new images to previously loaded images when open() is
-    // called. bmp needs to be cleared prior to looping to prevent this.
+    // Bitmap still doesn't clear the buffer while opening a new file so I need
+    // to reset all of bitmap.
     Bitmap bmp;
     // Determine file to load.
     if (inPath.size() < 1) {
@@ -173,6 +174,7 @@ PixelMatrix ProcessImages(vector<string> &inPath) {
         }
       }
     } else if (numImages < (int)inPath.size()) {
+      // If paths were provided via arguments, use these to open images.
       nextPath = inPath[numImages];
       cout << Campbell::Color::green << "Opening image (" << numImages + 1
            << "/" << inPath.size() << " "
@@ -180,12 +182,12 @@ PixelMatrix ProcessImages(vector<string> &inPath) {
            << Campbell::Color::reset << "          \r" << flush;
       numImages++;
     } else {
+      // All arguments have been looped through. We are done.
       averagePixels(output, numImagesLoaded);
       return output;
     }
 
-    // Attempt to open file. If it fails, allow user to choose new file, or skip
-    // if passed in through arguments.
+    // Attempt to open file. If it fails, start loop over to get a new file.
     cout << Campbell::Color::magenta;
     bmp.open(nextPath);
     if (!bmp.isImage()) {
@@ -314,7 +316,7 @@ void printHelp(const char *argv) {
 }  // void printHelp
 
 // My issues with bitmap library:
-// 1) Does not include iostream. Requires parent to do so.
+// 1) Does not include iostream. Requires parent to do so. (FIXED)
 // 2) Gives no feedback as to whether operations fail or succeed.
 // 3) Does not contain interface for accessing Pixels as an array making loops
 // more complicated.
@@ -323,12 +325,13 @@ void printHelp(const char *argv) {
 // 5) Comments are formatted as a Java Doc. (This is C++, I can see what is
 // being returned)
 // 6) Appends newly opened files to current buffer instead of overwriting and
-// does not provide interface for clearing buffer.
+// does not provide interface for clearing buffer. (NOT FIXED)
 // 7) Inefficiently requires 2 copies of an image to be stored at all times. (1
 // is its internal buffer, while the user is required to copy this buffer to
 // another buffer in order to use it.)
 // 8) White space EVERYWHERE.
-// 9) Uses cout. Give the includer feedback instead!
+// 9) Uses cout. Give the includer feedback instead! This doens't need anout
+// cout;
 // 10) fromPixelMatrix() should check if matrix is valid image and return if
 // there is a failure.
 // 11) Functions should all be static. (No need for internal buffer, just return

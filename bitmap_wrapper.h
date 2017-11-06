@@ -2,7 +2,6 @@
 // mostly to overload operators for Pixels.
 #ifndef BITMAP_WRAPPER_H
 #define BITMAP_WRAPPER_H
-#include <iostream>  // Because bitmap is dumb and doesn't do this itself.
 #include "bitmap.h"
 
 // Arithmetic Operators
